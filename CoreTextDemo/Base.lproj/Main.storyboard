@@ -16,23 +16,49 @@
                         <rect key="frame" x="0.0" y="0.0" width="320" height="568"/>
                         <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                         <subviews>
-                            <view contentMode="scaleToFill" translatesAutoresizingMaskIntoConstraints="NO" id="gLF-oU-n8o" customClass="HFCoreTextView">
-                                <rect key="frame" x="0.0" y="100" width="320" height="400"/>
-                                <color key="backgroundColor" white="1" alpha="1" colorSpace="calibratedWhite"/>
+                            <scrollView clipsSubviews="YES" multipleTouchEnabled="YES" contentMode="scaleToFill" translatesAutoresizingMaskIntoConstraints="NO" id="XzN-ZH-S1X">
+                                <rect key="frame" x="0.0" y="0.0" width="320" height="568"/>
+                                <subviews>
+                                    <view contentMode="scaleToFill" translatesAutoresizingMaskIntoConstraints="NO" id="2SM-st-jIN" userLabel="contentView">
+                                        <rect key="frame" x="0.0" y="40" width="320" height="568"/>
+                                        <subviews>
+                                            <view contentMode="scaleToFill" translatesAutoresizingMaskIntoConstraints="NO" id="gLF-oU-n8o" customClass="HFCoreTextView">
+                                                <rect key="frame" x="0.0" y="0.0" width="320" height="568"/>
+                                                <color key="backgroundColor" white="1" alpha="1" colorSpace="calibratedWhite"/>
+                                            </view>
+                                        </subviews>
+                                        <color key="backgroundColor" white="1" alpha="1" colorSpace="calibratedWhite"/>
+                                        <constraints>
+                                            <constraint firstItem="gLF-oU-n8o" firstAttribute="top" secondItem="2SM-st-jIN" secondAttribute="top" id="4lL-rA-aeX"/>
+                                            <constraint firstAttribute="height" constant="568" id="OaK-Sv-1yc"/>
+                                            <constraint firstAttribute="height" secondItem="gLF-oU-n8o" secondAttribute="height" id="XZm-wg-i1N"/>
+                                            <constraint firstItem="gLF-oU-n8o" firstAttribute="leading" secondItem="2SM-st-jIN" secondAttribute="leading" id="e4h-Un-19A"/>
+                                            <constraint firstAttribute="trailing" secondItem="gLF-oU-n8o" secondAttribute="trailing" id="kCC-ju-jyw"/>
+                                        </constraints>
+                                    </view>
+                                </subviews>
                                 <constraints>
-                                    <constraint firstAttribute="height" constant="400" id="KYd-rT-OQB"/>
+                                    <constraint firstAttribute="bottom" secondItem="2SM-st-jIN" secondAttribute="bottom" constant="48" id="08f-Tf-Xv0"/>
+                                    <constraint firstAttribute="trailing" secondItem="2SM-st-jIN" secondAttribute="trailing" id="ZBm-qJ-krq"/>
+                                    <constraint firstItem="2SM-st-jIN" firstAttribute="leading" secondItem="XzN-ZH-S1X" secondAttribute="leading" id="eDO-dZ-eQe"/>
+                                    <constraint firstItem="2SM-st-jIN" firstAttribute="top" secondItem="XzN-ZH-S1X" secondAttribute="top" constant="40" id="ov8-m0-oup"/>
+                                    <constraint firstItem="2SM-st-jIN" firstAttribute="width" secondItem="XzN-ZH-S1X" secondAttribute="width" id="vRD-pf-rjE"/>
                                 </constraints>
-                            </view>
+                            </scrollView>
                         </subviews>
                         <color key="backgroundColor" white="1" alpha="1" colorSpace="custom" customColorSpace="calibratedWhite"/>
                         <constraints>
-                            <constraint firstItem="gLF-oU-n8o" firstAttribute="top" secondItem="y3c-jy-aDJ" secondAttribute="bottom" constant="100" id="5FR-d5-xaE"/>
-                            <constraint firstAttribute="trailing" secondItem="gLF-oU-n8o" secondAttribute="trailing" id="axA-g8-lsC"/>
-                            <constraint firstItem="gLF-oU-n8o" firstAttribute="leading" secondItem="8bC-Xf-vdC" secondAttribute="leading" id="y2E-h9-7lS"/>
+                            <constraint firstAttribute="trailing" secondItem="XzN-ZH-S1X" secondAttribute="trailing" id="9vu-zC-TEN"/>
+                            <constraint firstItem="XzN-ZH-S1X" firstAttribute="leading" secondItem="8bC-Xf-vdC" secondAttribute="leading" id="EOD-Lk-i7J"/>
+                            <constraint firstItem="wfy-db-euE" firstAttribute="top" secondItem="XzN-ZH-S1X" secondAttribute="bottom" id="Lbz-IX-aJf"/>
+                            <constraint firstItem="XzN-ZH-S1X" firstAttribute="top" secondItem="y3c-jy-aDJ" secondAttribute="bottom" id="WVn-T6-CZF"/>
                         </constraints>
                     </view>
                     <nil key="simulatedStatusBarMetrics"/>
                     <simulatedScreenMetrics key="simulatedDestinationMetrics" type="retina4"/>
+                    <connections>
+                        <outlet property="contentViewHeightConstraint" destination="OaK-Sv-1yc" id="pUk-oW-JhB"/>
+                    </connections>
                 </viewController>
                 <placeholder placeholderIdentifier="IBFirstResponder" id="dkx-z0-nzr" sceneMemberID="firstResponder"/>
             </objects>

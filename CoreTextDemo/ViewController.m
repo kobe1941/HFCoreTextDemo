@@ -10,6 +10,9 @@
 
 @interface ViewController ()
 
+;
+@property (weak, nonatomic) IBOutlet NSLayoutConstraint *contentViewHeightConstraint;
+
 @end
 
 @implementation ViewController
@@ -17,6 +20,8 @@
 - (void)viewDidLoad {
     [super viewDidLoad];
     // Do any additional setup after loading the view, typically from a nib.
+    
+    self.contentViewHeightConstraint.constant = 400*3;
 }
 
 - (void)didReceiveMemoryWarning {
