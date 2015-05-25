@@ -10,4 +10,13 @@
 
 @interface HFCoreTextView : UIView
 
+@property (nonatomic, copy) NSString *text;
+@property (nonatomic, strong) UIFont *font;
+
+// 计算高度的代码
++ (CGFloat)textHeightWithText:(NSString *)aText width:(CGFloat)aWidth font:(UIFont *)aFont;
+
++ (CGFloat)textHeightWithText2:(NSString *)aText width:(CGFloat)aWidth font:(UIFont *)aFont;
+
++ (CGFloat)textHeightWithText3:(NSString *)aText width:(CGFloat)aWidth font:(UIFont *)aFont;
 @end
