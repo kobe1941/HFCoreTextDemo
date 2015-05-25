@@ -77,7 +77,7 @@
 - (void)drawRect:(CGRect)rect
 {
     [super drawRect:rect];
-
+    
     // 1.获取上下文
     CGContextRef contextRef = UIGraphicsGetCurrentContext();
     
@@ -177,7 +177,8 @@
     unichar objectReplacementChar = 0xFFFC;
     NSString *content = [NSString stringWithCharacters:&objectReplacementChar length:1];
     NSMutableAttributedString *space = [[NSMutableAttributedString alloc] initWithString:content];
-    CFAttributedStringSetAttribute((CFMutableAttributedStringRef)space, CFRangeMake(0, 1), kCTRunDelegateAttributeName, delegate);
+    [space addAttribute:(NSString *)kCTRunDelegateAttributeName value:(__bridge id)delegate range:NSMakeRange(0, 1)];
+//    CFAttributedStringSetAttribute((CFMutableAttributedStringRef)space, CFRangeMake(0, 1), kCTRunDelegateAttributeName, delegate);
     CFRelease(delegate);
 
     // 将创建的空白AttributedString插入进当前的attrString中，位置可以随便指定，不能越界
@@ -208,6 +209,8 @@
         CGFloat lineAscent;
         CGFloat lineDescent;
         CGFloat lineLeading; // 行距
+        
+        // 往lineAscent等数据里写值?
         CTLineGetTypographicBounds(line, &lineAscent, &lineDescent, &lineLeading);
         
         CFArrayRef runs = CTLineGetGlyphRuns(line);
