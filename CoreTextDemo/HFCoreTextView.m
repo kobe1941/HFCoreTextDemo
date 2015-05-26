@@ -14,10 +14,15 @@
 
 #import <float.h>
 
+// 行距
+const CGFloat globalLineLeading = 5.0;
+
 @interface HFCoreTextView ()
 
 @property (nonatomic, strong) UIImage *image;
 
+
+@property (nonatomic, assign) CGFloat textHeight;
 @end
 
 @implementation HFCoreTextView
@@ -60,38 +65,16 @@
 
 - (void)configSettings
 {
-    self.font = [UIFont systemFontOfSize:14];
+//    self.font = [UIFont systemFontOfSize:15];
 }
 
 - (void)drawRect:(CGRect)rect
 {
     [super drawRect:rect];
 
-
 //    [self drawRectWithPictureAndContent];
 //    return;
 
-    
-    // 1.获取上下文
-    CGContextRef contextRef = UIGraphicsGetCurrentContext();
-    
-    // [a,b,c,d,tx,ty]
-    NSLog(@"转换前的坐标：%@",NSStringFromCGAffineTransform(CGContextGetCTM(contextRef)));
-    
-    // 2.转换坐标系
-    CGContextSetTextMatrix(contextRef, CGAffineTransformIdentity);
-    CGContextTranslateCTM(contextRef, 0, self.bounds.size.height);
-    CGContextScaleCTM(contextRef, 1.0, -1.0);
-
-    NSLog(@"转换后的坐标：%@",NSStringFromCGAffineTransform(CGContextGetCTM(contextRef)));
-    
-    
-    // 3.创建绘制区域，可以对path进行个性化裁剪以改变显示区域
-    CGMutablePathRef path = CGPathCreateMutable();
-    CGPathAddRect(path, NULL, self.bounds);
-    
-    
-    
     // 4.创建需要绘制的文字
     NSMutableAttributedString *attributed = [[NSMutableAttributedString alloc] initWithString:self.text];
     
@@ -99,36 +82,115 @@
     [[self class] addGlobalAttributeWithContent:attributed font:self.font];
     
 
+    self.textHeight = [[self class] textHeightWithText3:self.text width:CGRectGetWidth(self.bounds) font:self.font];
+    
+    // 3.创建绘制区域，path的高度对绘制有直接影响，如果高度不够，则计算出来的CTLine的数量会少一行或者多行，所以这里先乘以2，下边再一行一行的画
+    CGMutablePathRef path = CGPathCreateMutable();
+    CGPathAddRect(path, NULL, CGRectMake(0, 0, CGRectGetWidth(self.bounds), self.textHeight));
     
     // 5.根据NSAttributedString生成CTFramesetterRef
     CTFramesetterRef framesetter = CTFramesetterCreateWithAttributedString((CFAttributedStringRef)attributed);
     
     CTFrameRef ctFrame = CTFramesetterCreateFrame(framesetter, CFRangeMake(0, attributed.length), path, NULL);
     
-    // 6.绘制除图片以外的部分
-    CTFrameDraw(ctFrame, contextRef);
+    // 6.绘制
+//    CTFrameDraw(ctFrame, contextRef);
 
+    // 1.获取上下文
+    CGContextRef contextRef = UIGraphicsGetCurrentContext();
+    
+    // 2.转换坐标系
+    CGContextSetTextMatrix(contextRef, CGAffineTransformIdentity);
+    CGContextTranslateCTM(contextRef, 0, self.textHeight); // 此处用计算出来的高度
+    CGContextScaleCTM(contextRef, 1.0, -1.0);
 
-    // 处理绘制图片的逻辑
+    // 重置高度，呵呵，上面高度乘以2是为了准确生成CTLine
+    CGPathAddRect(path, NULL, CGRectMake(0, 0, CGRectGetWidth(self.bounds), self.textHeight));
+    
+    // 一行一行绘制
     CFArrayRef lines = CTFrameGetLines(ctFrame);
-    CGPoint lineOrigins[CFArrayGetCount(lines)];
+    CFIndex lineCount = CFArrayGetCount(lines);
+    CGPoint lineOrigins[lineCount];
     
     // 把ctFrame里每一行的初始坐标写到数组里，注意CoreText的坐标是左下角为原点
     CTFrameGetLineOrigins(ctFrame, CFRangeMake(0, 0), lineOrigins);
     
-    // 遍历CTRun找出图片所在的CTRun并进行绘制
-    for (int i = 0; i < CFArrayGetCount(lines); i++)
+    for (int i = 0; i < lineCount; i++)
+    {
+        CGPoint point = lineOrigins[i];
+        NSLog(@"point.y = %f",point.y);
+    }
+    
+    // 距离左上角的高度
+    CGFloat tempHeight = 0;
+    
+//    self.font.ascender;
+//    self.font.descender;
+//    self.font.leading;
+    NSLog(@"font.ascender = %f,descender = %f,lineHeight = %f,leading = %f",self.font.ascender,self.font.descender,self.font.lineHeight,self.font.leading);
+    
+    CGFloat frameY = 0;
+    
+
+    for (CFIndex i = 0; i < lineCount; i++)
     {
         // 遍历每一行CTLine
         CTLineRef line = CFArrayGetValueAtIndex(lines, i);
+        
+        
         CGFloat lineAscent;
         CGFloat lineDescent;
         CGFloat lineLeading; // 行距
+        // 该函数除了会设置好ascent,descent,leading之外，还会返回这行的宽度
         CTLineGetTypographicBounds(line, &lineAscent, &lineDescent, &lineLeading);
-        
         NSLog(@"lineAscent = %f",lineAscent);
         NSLog(@"lineDescent = %f",lineDescent);
         NSLog(@"lineLeading = %f",lineLeading);
+        
+        
+        CGPoint lineOrigin = lineOrigins[i];
+        
+        NSLog(@"i = %ld, lineOrigin = %@",i,NSStringFromCGPoint(lineOrigin));
+        
+//        tempHeight += lineAscent + lineDescent;
+//        lineOrigin.y = self.textHeight - tempHeight;
+//        tempHeight += globalLineLeading;
+        
+        
+        
+        // 微调Y值，需要注意的是CoreText的Y值是在baseLine处，而不是下方的descent。
+        // lineDescent为正数，self.font.descender为负数
+        
+//        if (frameY == 0)
+//        {
+//            lineOrigin.y = lineOrigin.y + lineDescent + self.font.descender;
+//            
+//            frameY = lineOrigin.y;
+//            
+//        } else
+        if (i > 0)
+        {
+            // 第二行之后需要计算
+            frameY = frameY - globalLineLeading - lineAscent;
+            
+            lineOrigin.y = frameY;
+            
+        } else
+        {
+            // 第一行可直接用
+            frameY = lineOrigin.y;
+        }
+        
+        
+        NSLog(@"frameY = %f",frameY);
+        
+        // 调整坐标
+        CGContextSetTextPosition(contextRef, lineOrigin.x, lineOrigin.y);
+        CTLineDraw(line, contextRef);
+        
+        // 微调
+        frameY = frameY - lineDescent;
+        
         
         CFArrayRef runs = CTLineGetGlyphRuns(line);
         for (int j = 0; j < CFArrayGetCount(runs); j++)
@@ -145,9 +207,9 @@
             // 这一段可参考Nimbus的NIAttributedLabel
             runRect = CGRectMake(lineOrigin.x + CTLineGetOffsetForStringIndex(line, CTRunGetStringRange(run).location, NULL), lineOrigin.y - runDescent, runRect.size.width, runAscent + runDescent);
             
-            NSLog(@"runAscent = %f",runAscent);
-            NSLog(@"runDescent = %f",runDescent);
-            NSLog(@"lineOrigin.y = %f",lineOrigin.y);
+//            NSLog(@"runAscent = %f",runAscent);
+//            NSLog(@"runDescent = %f",runDescent);
+//            NSLog(@"lineOrigin.y = %f",lineOrigin.y);
             
             NSString *imageName = [attributes objectForKey:@"imageName"];
             
@@ -164,7 +226,7 @@
 
 }
 
-#pragma mark 图文混排
+#pragma mark - 图文混排
 // 对应第二篇博文
 - (void)drawRectWithPictureAndContent
 {
@@ -480,10 +542,10 @@ CGFloat RunDelegateGetWidthCallback(void *refCon)
     }
   
 
-    NSLog(@"aFont.ascender = %f",aFont.ascender);
-    NSLog(@"aFont.descender = %f",aFont.descender);
-    NSLog(@"aFont.leading = %f",aFont.leading);
-    NSLog(@"aFont.lineHeight = %f",aFont.lineHeight);
+//    NSLog(@"aFont.ascender = %f",aFont.ascender);
+//    NSLog(@"aFont.descender = %f",aFont.descender);
+//    NSLog(@"aFont.leading = %f",aFont.leading);
+//    NSLog(@"aFont.lineHeight = %f",aFont.lineHeight);
     
 #warning 高度的计算方式需要重构
     
@@ -546,7 +608,7 @@ CGFloat RunDelegateGetWidthCallback(void *refCon)
     CGSize suggestSize = CTFramesetterSuggestFrameSizeWithConstraints(framesetterRef, CFRangeMake(0, aText.length), NULL, CGSizeMake(aWidth, MAXFLOAT), NULL);
     
     CGMutablePathRef path = CGPathCreateMutable();
-    CGPathAddRect(path, NULL, CGRectMake(0, 0, aWidth, suggestSize.height*10)); // 10这个数值是随便给的，不乘以10也可以
+    CGPathAddRect(path, NULL, CGRectMake(0, 0, aWidth, suggestSize.height*10)); // 10这个数值是随便给的，主要是为了确保高度足够
     
     
     CTFrameRef frameRef = CTFramesetterCreateFrame(framesetterRef, CFRangeMake(0, aText.length), path, NULL);
@@ -560,7 +622,7 @@ CGFloat RunDelegateGetWidthCallback(void *refCon)
     
     CGFloat totalHeight = 0;
     
-    
+    NSLog(@"计算高度开始");
     for (CFIndex i = 0; i < lineCount; i++)
     {
         
@@ -568,18 +630,20 @@ CGFloat RunDelegateGetWidthCallback(void *refCon)
         
         CTLineGetTypographicBounds(lineRef, &ascent, &descent, &leading);
         
-        NSLog(@"ascent = %f,descent = %f",ascent,descent);
+        NSLog(@"ascent = %f,descent = %f, leading = %f",ascent,descent,leading);
         
         totalHeight += ascent + descent;
         
     }
     
-    leading = 5;
+    leading = globalLineLeading; // 行间距，
     
-    totalHeight += (lineCount - 1) * leading;
+    totalHeight += (lineCount ) * leading;
     
     
     NSLog(@"totalHeight = %f",totalHeight);
+    
+    NSLog(@"高度计算完毕");
     
     return totalHeight;
 }
@@ -588,7 +652,7 @@ CGFloat RunDelegateGetWidthCallback(void *refCon)
 #pragma mark 给字符串添加全局属性，比如行距，字体大小，默认颜色
 + (void)addGlobalAttributeWithContent:(NSMutableAttributedString *)aContent font:(UIFont *)aFont
 {
-    CGFloat lineSpace = 5; // 行距一般取决于这个值
+    CGFloat lineLeading = globalLineLeading; // 行间距
 
     const CFIndex kNumberOfSettings = 2;
     
@@ -601,19 +665,20 @@ CGFloat RunDelegateGetWidthCallback(void *refCon)
     lineBreakStyle.value = &lineBreakMode;
     
     CTParagraphStyleSetting lineSpaceStyle;
-    CTParagraphStyleSpecifier spec = kCTParagraphStyleSpecifierLineSpacingAdjustment;
+    CTParagraphStyleSpecifier spec;
+    spec = kCTParagraphStyleSpecifierLineSpacingAdjustment;
 //    spec = kCTParagraphStyleSpecifierMaximumLineSpacing;
 //    spec = kCTParagraphStyleSpecifierMinimumLineSpacing;
-    spec = kCTParagraphStyleSpecifierLineSpacing;
+//    spec = kCTParagraphStyleSpecifierLineSpacing;
     
     lineSpaceStyle.spec = spec;
     lineSpaceStyle.valueSize = sizeof(CGFloat);
-    lineSpaceStyle.value = &lineSpace;
+    lineSpaceStyle.value = &lineLeading;
     
     CTParagraphStyleSetting lineHeightStyle;
     lineHeightStyle.spec = kCTParagraphStyleSpecifierMinimumLineHeight;
     lineHeightStyle.valueSize = sizeof(CGFloat);
-    lineHeightStyle.value = &lineSpace;
+    lineHeightStyle.value = &lineLeading;
     
     // 结构体数组
     CTParagraphStyleSetting theSettings[kNumberOfSettings] = {
