@@ -29,11 +29,23 @@
     self.coreTextView.font = [UIFont systemFontOfSize:15];
     self.coreTextView.text = content;
     
-    self.coreTextView.drawType = HFDrawTextLineByLineAlignment; // 设置该值即可切换
+    self.coreTextView.drawType = HFDrawTextWithEllipses; // 设置该值即可切换
     
+    // 此时self.coreTextView的宽度为320，为了在iPhone6上计算准确，使用屏幕宽度
+    CGFloat realWidth = [UIScreen mainScreen].bounds.size.width;
+    
+    CGFloat height = [HFCoreTextView textHeightWithText:content width:realWidth font:self.coreTextView.font type:self.coreTextView.drawType];
 
-    CGFloat height = [HFCoreTextView textHeightWithText:content width:CGRectGetWidth(self.coreTextView.frame) font:self.coreTextView.font type:self.coreTextView.drawType];
-
+    // 在这里控制显示的行数
+    CGFloat maxHeight = (self.coreTextView.font.pointSize*kPerLineRatio)*6;
+    
+    if (height > maxHeight && self.coreTextView.drawType == HFDrawTextWithEllipses)
+    {
+        height = maxHeight;
+    }
+    
+    NSLog(@"height = %f",height);
+    
     self.contentViewHeightConstraint.constant = height;
 
 }

@@ -7,14 +7,14 @@
 	<key>IDESourceControlProjectIdentifier</key>
 	<string>115C41AE-200B-4EA5-A6A2-1905E36158F1</string>
 	<key>IDESourceControlProjectName</key>
-	<string>project</string>
+	<string>CoreTextDemo</string>
 	<key>IDESourceControlProjectOriginsDictionary</key>
 	<dict>
 		<key>DF91E1AB17462486B20ED6C06D3B2217044A87E6</key>
 		<string>github.com:kobe1941/HFCoreTextDemo.git</string>
 	</dict>
 	<key>IDESourceControlProjectPath</key>
-	<string>CoreTextDemo.xcodeproj/project.xcworkspace</string>
+	<string>CoreTextDemo.xcodeproj</string>
 	<key>IDESourceControlProjectRelativeInstallPathDictionary</key>
 	<dict>
 		<key>DF91E1AB17462486B20ED6C06D3B2217044A87E6</key>
@@ -34,7 +34,7 @@
 			<key>IDESourceControlWCCIdentifierKey</key>
 			<string>DF91E1AB17462486B20ED6C06D3B2217044A87E6</string>
 			<key>IDESourceControlWCCName</key>
-			<string>CoreTextDemo</string>
+			<string>HFCoreTextDemo</string>
 		</dict>
 	</array>
 </dict>

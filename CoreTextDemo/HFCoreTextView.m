@@ -17,7 +17,8 @@
 // 行距
 const CGFloat kGlobalLineLeading = 5.0;
 
-const CGFloat kPerLineRatio = 1.4; // 在15字体下，比值小于这个则显示emoji不全
+// 在15字体下，比值小于这个则显示emoji不全
+const CGFloat kPerLineRatio = 1.4;
 
 @interface HFCoreTextView ()
 
@@ -88,8 +89,11 @@ const CGFloat kPerLineRatio = 1.4; // 在15字体下，比值小于这个则显�
         
     } else if (self.drawType == HFDrawTextLineByLineAlignment)
     {
-        
         [self drawRectWithLineByLineAlignment];
+        
+    } else if (self.drawType == HFDrawTextWithEllipses)
+    {
+        [self drawRectWithLineByLineAlignmentAndEllipses];
     }
 }
 
@@ -355,10 +359,10 @@ const CGFloat kPerLineRatio = 1.4; // 在15字体下，比值小于这个则显�
     CTFrameRef ctFrame = CTFramesetterCreateFrame(framesetter, CFRangeMake(0, attributed.length), path, NULL);
     
     
-    // 1.获取上下文
+    // 获取上下文
     CGContextRef contextRef = UIGraphicsGetCurrentContext();
     
-    // 2.转换坐标系
+    // 转换坐标系
     CGContextSetTextMatrix(contextRef, CGAffineTransformIdentity);
     CGContextTranslateCTM(contextRef, 0, self.textHeight); // 此处用计算出来的高度
     CGContextScaleCTM(contextRef, 1.0, -1.0);
@@ -464,10 +468,10 @@ const CGFloat kPerLineRatio = 1.4; // 在15字体下，比值小于这个则显�
     CTFrameRef ctFrame = CTFramesetterCreateFrame(framesetter, CFRangeMake(0, attributed.length), path, NULL);
     
     
-    // 1.获取上下文
+    // 获取上下文
     CGContextRef contextRef = UIGraphicsGetCurrentContext();
     
-    // 2.转换坐标系
+    // 转换坐标系
     CGContextSetTextMatrix(contextRef, CGAffineTransformIdentity);
     CGContextTranslateCTM(contextRef, 0, self.textHeight); // 此处用计算出来的高度
     CGContextScaleCTM(contextRef, 1.0, -1.0);
@@ -494,7 +498,6 @@ const CGFloat kPerLineRatio = 1.4; // 在15字体下，比值小于这个则显�
     
     CGFloat frameY = 0;
     
-    
     NSLog(@"self.textHeight = %f,lineHeight = %f",self.textHeight,self.font.pointSize * kPerLineRatio);
     
     for (CFIndex i = 0; i < lineCount; i++)
@@ -518,7 +521,6 @@ const CGFloat kPerLineRatio = 1.4; // 在15字体下，比值小于这个则显�
         NSLog(@"i = %ld, lineOrigin = %@",i,NSStringFromCGPoint(lineOrigin));
         
         
-        
         // 微调Y值，需要注意的是CoreText的Y值是在baseLine处，而不是下方的descent。
         
         CGFloat lineHeight = self.font.pointSize * kPerLineRatio;
@@ -533,32 +535,193 @@ const CGFloat kPerLineRatio = 1.4; // 在15字体下，比值小于这个则显�
         CGContextSetTextPosition(contextRef, lineOrigin.x, lineOrigin.y);
         CTLineDraw(line, contextRef);
 
+    }
+    
+    CFRelease(path);
+    CFRelease(framesetter);
+    CFRelease(ctFrame);
+
+}
+
+#pragma mark - 一行一行绘制，行高确定，高度不够时加上省略号
+- (void)drawRectWithLineByLineAlignmentAndEllipses
+{
+    
+    // 1.创建需要绘制的文字
+    NSMutableAttributedString *attributed = [[NSMutableAttributedString alloc] initWithString:self.text];
+    
+    // 2.设置行距等样式
+    [[self class] addGlobalAttributeWithContent:attributed font:self.font];
+    
+    
+    self.textHeight = [[self class] textHeightWithText:self.text width:CGRectGetWidth(self.bounds) font:self.font type:self.drawType];
+    
+    // 3.创建绘制区域，path的高度对绘制有直接影响，如果高度不够，则计算出来的CTLine的数量会少一行或者少多行
+    CGMutablePathRef path = CGPathCreateMutable();
+    CGPathAddRect(path, NULL, CGRectMake(0, 0, CGRectGetWidth(self.bounds), self.textHeight*2));
+    
+    // 4.根据NSAttributedString生成CTFramesetterRef
+    CTFramesetterRef framesetter = CTFramesetterCreateWithAttributedString((CFAttributedStringRef)attributed);
+    
+    CTFrameRef ctFrame = CTFramesetterCreateFrame(framesetter, CFRangeMake(0, attributed.length), path, NULL);
+    
+    // 重置高度
+    CGFloat realHeight = self.textHeight;
+    // 绘制全部文本需要的高度大于实际高度则调整，并加上省略号
+    if (realHeight > CGRectGetHeight(self.frame))
+    {
+        realHeight = CGRectGetHeight(self.frame);
+    }
+
+    NSLog(@"realHeight = %f",realHeight);
+    
+    // 获取上下文
+    CGContextRef contextRef = UIGraphicsGetCurrentContext();
+    
+    // 转换坐标系
+    CGContextSetTextMatrix(contextRef, CGAffineTransformIdentity);
+    CGContextTranslateCTM(contextRef, 0, realHeight); // 这里跟着调整
+    CGContextScaleCTM(contextRef, 1.0, -1.0);
+    
+    // 这里可调整可不调整
+    CGPathAddRect(path, NULL, CGRectMake(0, 0, CGRectGetWidth(self.bounds), realHeight));
+    
+    // 一行一行绘制
+    CFArrayRef lines = CTFrameGetLines(ctFrame);
+    CFIndex lineCount = CFArrayGetCount(lines);
+    CGPoint lineOrigins[lineCount];
+    
+    // 把ctFrame里每一行的初始坐标写到数组里，注意CoreText的坐标是左下角为原点
+    CTFrameGetLineOrigins(ctFrame, CFRangeMake(0, 0), lineOrigins);
+
+    
+    CGFloat frameY = 0;
+    
+    
+    for (CFIndex i = 0; i < lineCount; i++)
+    {
+        // 遍历每一行CTLine
+        CTLineRef line = CFArrayGetValueAtIndex(lines, i);
         
         
-//        CFArrayRef runs = CTLineGetGlyphRuns(line);
-//        for (int j = 0; j < CFArrayGetCount(runs); j++)
-//        {
-//            // 遍历每一个CTRun
-//            CGFloat runAscent;
-//            CGFloat runDescent;
-//            CGPoint lineOrigin = lineOrigins[i]; // 获取该行的初始坐标
-//            CTRunRef run = CFArrayGetValueAtIndex(runs, j); // 获取当前的CTRun
-//            NSDictionary* attributes = (NSDictionary*)CTRunGetAttributes(run);
-//            CGRect runRect;
-//            runRect.size.width = CTRunGetTypographicBounds(run, CFRangeMake(0,0), &runAscent, &runDescent, NULL);
-//            
-//            // 这一段可参考Nimbus的NIAttributedLabel
-//            runRect = CGRectMake(lineOrigin.x + CTLineGetOffsetForStringIndex(line, CTRunGetStringRange(run).location, NULL), lineOrigin.y - runDescent, runRect.size.width, runAscent + runDescent);
-//            
-//            //            NSLog(@"runAscent = %f",runAscent);
-//            //            NSLog(@"runDescent = %f",runDescent);
-//            //            NSLog(@"lineOrigin.y = %f",lineOrigin.y);
-//            
-//            NSString *imageName = [attributes objectForKey:@"imageName"];
-//            
-//            
-//            
-//        }
+        CGFloat lineAscent;
+        CGFloat lineDescent;
+        CGFloat lineLeading; // 行距
+        // 该函数除了会设置好ascent,descent,leading之外，还会返回这行的宽度
+        CTLineGetTypographicBounds(line, &lineAscent, &lineDescent, &lineLeading);
+
+        CGPoint lineOrigin = lineOrigins[i];
+        
+        // 微调Y值，需要注意的是CoreText的origin的Y值是在baseLine处，而不是下方的descent。
+        CGFloat lineHeight = self.font.pointSize * kPerLineRatio;
+        
+        // 调节self.font.descender该值可改变文字排版的上下间距，此处下间距为0
+        frameY = realHeight - (i + 1)*lineHeight - self.font.descender;
+        
+        NSLog(@"frameY = %f",frameY);
+        
+        lineOrigin.y = frameY;
+        
+        // 调整坐标
+        CGContextSetTextPosition(contextRef, lineOrigin.x, lineOrigin.y);
+        
+        // 反转坐标系
+        frameY = realHeight - frameY;
+        
+        NSLog(@"realHeight = %f,font.descender = %f",realHeight,self.font.descender);
+        NSLog(@"反转后的坐标 y = %f",frameY);
+        
+        // 行高
+        CGFloat heightPerLine = self.font.pointSize * kPerLineRatio;
+        
+        if (realHeight - frameY > heightPerLine)
+        {
+            CTLineDraw(line, contextRef);
+            
+            NSLog(@"一行一行的画 i = %ld",i);
+            
+        } else
+        {
+            NSLog(@"最后一行");
+            
+            // 最后一行，加上省略号
+            static NSString* const kEllipsesCharacter = @"\u2026";
+            
+            CFRange lastLineRange = CTLineGetStringRange(line);
+            
+            // 一个emoji表情占用两个长度单位
+            NSLog(@"range.location = %ld,range.length = %ld,总长度 = %ld",lastLineRange.location,lastLineRange.length,attributed.length);
+            
+            if (lastLineRange.location + lastLineRange.length < (CFIndex)attributed.length)
+            {
+                // 这一行放不下所有的字符（下一行还有字符），则把此行后面的回车、空格符去掉后，再把最后一个字符替换成省略号
+                
+                CTLineTruncationType truncationType = kCTLineTruncationEnd;
+                NSUInteger truncationAttributePosition = lastLineRange.location + lastLineRange.length - 1;
+                
+                // 拿到最后一个字符的属性字典
+                NSDictionary *tokenAttributes = [attributed attributesAtIndex:truncationAttributePosition
+                                                                     effectiveRange:NULL];
+                // 给省略号字符设置字体大小、颜色等属性
+                NSAttributedString *tokenString = [[NSAttributedString alloc] initWithString:kEllipsesCharacter
+                                                                                  attributes:tokenAttributes];
+                
+                // 用省略号单独创建一个CTLine，下面在截断重新生成CTLine的时候会用到
+                CTLineRef truncationToken = CTLineCreateWithAttributedString((__bridge CFAttributedStringRef)tokenString);
+                
+                // 把这一行的属性字符串复制一份，如果要把省略号放到中间或其他位置，只需指定复制的长度即可
+                NSUInteger copyLength = lastLineRange.length/3;
+                
+                NSMutableAttributedString *truncationString = [[attributed attributedSubstringFromRange:NSMakeRange(lastLineRange.location, copyLength)] mutableCopy];
+                
+                if (lastLineRange.length > 0)
+                {
+                    // Remove any whitespace at the end of the line.
+                    unichar lastCharacter = [[truncationString string] characterAtIndex:copyLength - 1];
+                    
+                    // 如果复制字符串的最后一个字符是换行、空格符，则删掉
+                    if ([[NSCharacterSet whitespaceAndNewlineCharacterSet] characterIsMember:lastCharacter])
+                    {
+                        [truncationString deleteCharactersInRange:NSMakeRange(copyLength - 1, 1)];
+                    }
+                }
+                
+                // 拼接省略号到复制字符串的最后
+                [truncationString appendAttributedString:tokenString];
+                
+                // 把新的字符串创建成CTLine
+                CTLineRef truncationLine = CTLineCreateWithAttributedString((__bridge CFAttributedStringRef)truncationString);
+                
+                // 创建一个截断的CTLine，该方法不能少，具体作用还有待研究
+                CTLineRef truncatedLine = CTLineCreateTruncatedLine(truncationLine, self.frame.size.width, truncationType, truncationToken);
+                
+                if (!truncatedLine)
+                {
+                    // If the line is not as wide as the truncationToken, truncatedLine is NULL
+                    truncatedLine = CFRetain(truncationToken);
+                }
+                
+                CFRelease(truncationLine);
+                CFRelease(truncationToken);
+                
+                CTLineDraw(truncatedLine, contextRef);
+                CFRelease(truncatedLine);
+                
+            } else
+            {
+                
+                // 这一行刚好是最后一行，且最后一行的字符可以完全绘制出来
+                CTLineDraw(line, contextRef);
+            }
+            
+            // 跳出循环，避免绘制剩下的多余的CTLine
+            break;
+            
+        }
+        
+        
+        
+
     }
     
     
@@ -568,6 +731,8 @@ const CGFloat kPerLineRatio = 1.4; // 在15字体下，比值小于这个则显�
     CFRelease(ctFrame);
 
 }
+
+
 #pragma mark - 下载图片的方法
 - (void)downLoadImageWithURL:(NSURL *)url
 {
@@ -665,6 +830,11 @@ CGFloat RunDelegateGetWidthCallback(void *refCon)
     } else if (drawType == HFDrawTextLineByLineAlignment)
     {
         return [self textHeightWithText2:aText width:aWidth font:aFont];
+        
+    } else if (drawType == HFDrawTextWithEllipses)
+    {
+        // 跟上方保持一致
+        return [self textHeightWithText2:aText width:aWidth font:aFont];
     }
     
     return 0;
@@ -685,7 +855,7 @@ CGFloat RunDelegateGetWidthCallback(void *refCon)
     // 粗略的高度，该高度不准，仅供参考
     CGSize suggestSize = CTFramesetterSuggestFrameSizeWithConstraints(framesetterRef, CFRangeMake(0, content.length), NULL, CGSizeMake(aWidth, MAXFLOAT), NULL);
     
-    NSLog(@"suggestHeight = %f",suggestSize.height);
+    NSLog(@"width = %f, suggestHeight = %f",aWidth,suggestSize.height);
     
     
     CGMutablePathRef pathRef = CGPathCreateMutable();
