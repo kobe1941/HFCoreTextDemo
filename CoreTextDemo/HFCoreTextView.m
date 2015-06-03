@@ -17,7 +17,8 @@
 // 行距
 const CGFloat kGlobalLineLeading = 5.0;
 
-const CGFloat kPerLineRatio = 1.4; // 在15字体下，比值小于这个则显示emoji不全
+// 在15字体下，比值小于这个计算出来的高度会导致emoji显示不全
+const CGFloat kPerLineRatio = 1.4;
 
 @interface HFCoreTextView ()
 
