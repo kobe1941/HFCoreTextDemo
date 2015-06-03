@@ -8,11 +8,19 @@
 
 #import <UIKit/UIKit.h>
 
+// 行距
+extern const CGFloat kGlobalLineLeading;
+
+// 在15字体下，比值小于这个则显示emoji不全
+extern const CGFloat kPerLineRatio;
+
+
 typedef NS_ENUM(NSInteger, HFDrawType){
     HFDrawPureText,                // 只绘制纯文本，对应第一篇博文
     HFDrawTextAndPicture,          // 图文混排，对应第二篇博文
     HFDrawTextLineByLine,          // 一行一行的绘制纯文本，不对齐，对应第三篇博文
     HFDrawTextLineByLineAlignment, // 一行一行的绘制纯文本，对齐，对应第三篇博文
+    HFDrawTextWithEllipses         // 一行一行的绘制纯文本，高度不够加省略号
 };
 @interface HFCoreTextView : UIView
 
@@ -20,6 +28,7 @@ typedef NS_ENUM(NSInteger, HFDrawType){
 @property (nonatomic, strong) UIFont *font;
 
 @property (nonatomic, assign) HFDrawType drawType;
+
 
 // 计算高度的代码
 + (CGFloat)textHeightWithText:(NSString *)aText width:(CGFloat)aWidth font:(UIFont *)aFont type:(HFDrawType)drawType;
