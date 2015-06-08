@@ -20,7 +20,8 @@ typedef NS_ENUM(NSInteger, HFDrawType){
     HFDrawTextAndPicture,          // 图文混排，对应第二篇博文
     HFDrawTextLineByLine,          // 一行一行的绘制纯文本，不对齐，对应第三篇博文
     HFDrawTextLineByLineAlignment, // 一行一行的绘制纯文本，对齐，对应第三篇博文
-    HFDrawTextWithEllipses         // 一行一行的绘制纯文本，高度不够加省略号
+    HFDrawTextWithEllipses,        // 一行一行的绘制纯文本，高度不够加省略号
+    HFDrawTextWithCheckClick       // 识别点击特定字符串
 };
 @interface HFCoreTextView : UIView
 

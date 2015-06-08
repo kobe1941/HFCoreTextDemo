@@ -21,12 +21,21 @@ const CGFloat kGlobalLineLeading = 5.0;
 // 在15字体下，比值小于这个计算出来的高度会导致emoji显示不全
 const CGFloat kPerLineRatio = 1.4;
 
-@interface HFCoreTextView ()
+NSString *kAtRegularExpression = @"@[^\\s@]+?\\s{1}";
+NSString *kNumberRegularExpression = @"\\d+[^\\d]{1}";
+
+@interface HFCoreTextView ()<
+UIGestureRecognizerDelegate
+>
+@property (nonatomic, assign) CTFrameRef ctFrame;
 
 @property (nonatomic, strong) UIImage *image;
 
-
 @property (nonatomic, assign) CGFloat textHeight;
+@property (nonatomic, assign) NSRange pressRange;
+
+// 换成UITapGestureRecognizer目测也可以
+@property (nonatomic, strong) UILongPressGestureRecognizer *longPressGesture;
 @end
 
 @implementation HFCoreTextView
@@ -69,7 +78,12 @@ const CGFloat kPerLineRatio = 1.4;
 
 - (void)configSettings
 {
-//    self.font = [UIFont systemFontOfSize:15];
+    self.font = [UIFont systemFontOfSize:15];
+    
+    self.longPressGesture = [[UILongPressGestureRecognizer alloc] initWithTarget:self action:@selector(longPressed:)];
+    self.longPressGesture.minimumPressDuration = 0.01;
+    self.longPressGesture.delegate = self;
+    [self addGestureRecognizer:self.longPressGesture];
 }
 
 - (void)drawRect:(CGRect)rect
@@ -95,6 +109,10 @@ const CGFloat kPerLineRatio = 1.4;
     } else if (self.drawType == HFDrawTextWithEllipses)
     {
         [self drawRectWithLineByLineAlignmentAndEllipses];
+        
+    } else if (self.drawType == HFDrawTextWithCheckClick)
+    {
+        [self drawRectWithCheckClick];
     }
 }
 
@@ -105,26 +123,17 @@ const CGFloat kPerLineRatio = 1.4;
     // 1.获取上下文
     CGContextRef contextRef = UIGraphicsGetCurrentContext();
     
-    // [a,b,c,d,tx,ty]
-    NSLog(@"转换前的坐标：%@",NSStringFromCGAffineTransform(CGContextGetCTM(contextRef)));
-    
     // 2.转换坐标系
     CGContextSetTextMatrix(contextRef, CGAffineTransformIdentity);
     CGContextTranslateCTM(contextRef, 0, self.bounds.size.height);
     CGContextScaleCTM(contextRef, 1.0, -1.0);
     
-    NSLog(@"转换后的坐标：%@",NSStringFromCGAffineTransform(CGContextGetCTM(contextRef)));
-    
-    
     // 3.创建绘制区域，可以对path进行个性化裁剪以改变显示区域
     CGMutablePathRef path = CGPathCreateMutable();
     CGPathAddRect(path, NULL, self.bounds);
     
-    
-    
     // 4.创建需要绘制的文字
     NSMutableAttributedString *attributed = [[NSMutableAttributedString alloc] initWithString:self.text];
-    
     
     // 设置行距等样式
     [[self class] addGlobalAttributeWithContent:attributed font:self.font];
@@ -141,7 +150,6 @@ const CGFloat kPerLineRatio = 1.4;
     
     // 6.绘制
     CTFrameDraw(ctFrame, contextRef);
-    
 }
 
 #pragma mark - 图文混排
@@ -151,16 +159,10 @@ const CGFloat kPerLineRatio = 1.4;
     // 1.获取上下文
     CGContextRef contextRef = UIGraphicsGetCurrentContext();
     
-    // [a,b,c,d,tx,ty]
-    NSLog(@"转换前的坐标：%@",NSStringFromCGAffineTransform(CGContextGetCTM(contextRef)));
-    
     // 2.转换坐标系
     CGContextSetTextMatrix(contextRef, CGAffineTransformIdentity);
     CGContextTranslateCTM(contextRef, 0, self.bounds.size.height);
     CGContextScaleCTM(contextRef, 1.0, -1.0);
-    
-    NSLog(@"转换后的坐标：%@",NSStringFromCGAffineTransform(CGContextGetCTM(contextRef)));
-    
     
     // 3.创建绘制区域，可以对path进行个性化裁剪以改变显示区域
     CGMutablePathRef path = CGPathCreateMutable();
@@ -169,7 +171,6 @@ const CGFloat kPerLineRatio = 1.4;
     // 4.创建需要绘制的文字
     NSMutableAttributedString *attributed = [[NSMutableAttributedString alloc] initWithString:self.text];
     
-    
     // 设置行距等样式
     [[self class] addGlobalAttributeWithContent:attributed font:self.font];
     
@@ -177,7 +178,6 @@ const CGFloat kPerLineRatio = 1.4;
     [attributed addAttribute:NSFontAttributeName value:[UIFont systemFontOfSize:20] range:NSMakeRange(10, 5)];
     
     [attributed addAttribute:NSForegroundColorAttributeName value:[UIColor greenColor] range:NSMakeRange(5, 10)];
-    
     
     // 插入图片部分
     //为图片设置CTRunDelegate,delegate决定留给图片的空间大小
@@ -188,9 +188,6 @@ const CGFloat kPerLineRatio = 1.4;
     imageCallbacks.getAscent = RunDelegateGetAscentCallback;
     imageCallbacks.getDescent = RunDelegateGetDescentCallback;
     imageCallbacks.getWidth = RunDelegateGetWidthCallback;
-    
-    
-    
     
     // ①该方式适用于图片在本地的情况
     // 设置CTRun的代理
@@ -205,8 +202,6 @@ const CGFloat kPerLineRatio = 1.4;
     // 在index处插入图片，可插入多张
     [attributed insertAttributedString:imageAttributedString atIndex:5];
     //    [attributed insertAttributedString:imageAttributedString atIndex:10];
-    
-    
     
     
     // ②若图片资源在网络上，则需要使用0xFFFC作为占位符
@@ -273,7 +268,6 @@ const CGFloat kPerLineRatio = 1.4;
             
             NSString *imageName = [attributes objectForKey:@"imageName"];
             
-            
             if ([imageName isKindOfClass:[NSString class]])
             {
                 // 绘制本地图片
@@ -298,7 +292,6 @@ const CGFloat kPerLineRatio = 1.4;
                     continue;
                 }
                 
-                
                 NSLog(@"网络图片啊啊啊");
                 // 网络图片
                 UIImage *image;
@@ -310,7 +303,6 @@ const CGFloat kPerLineRatio = 1.4;
                     
                     // 去下载图片
                     [self downLoadImageWithURL:[NSURL URLWithString:picURL]];
-                    
                     
                 } else
                 {
@@ -331,7 +323,6 @@ const CGFloat kPerLineRatio = 1.4;
     }
     
     
-    
     CFRelease(path);
     CFRelease(framesetter);
     CFRelease(ctFrame);
@@ -346,7 +337,6 @@ const CGFloat kPerLineRatio = 1.4;
     
     // 2.设置行距等样式
     [[self class] addGlobalAttributeWithContent:attributed font:self.font];
-    
     
     self.textHeight = [[self class] textHeightWithText:self.text width:CGRectGetWidth(self.bounds) font:self.font type:self.drawType];
     
@@ -547,7 +537,6 @@ const CGFloat kPerLineRatio = 1.4;
 #pragma mark - 一行一行绘制，行高确定，高度不够时加上省略号
 - (void)drawRectWithLineByLineAlignmentAndEllipses
 {
-    
     // 1.创建需要绘制的文字
     NSMutableAttributedString *attributed = [[NSMutableAttributedString alloc] initWithString:self.text];
     
@@ -720,9 +709,186 @@ const CGFloat kPerLineRatio = 1.4;
             
         }
         
-        
-        
+    }
+    
+    
+    CFRelease(path);
+    CFRelease(framesetter);
+    CFRelease(ctFrame);
+}
 
+
+#pragma mark - 加上监测点击
+- (void)drawRectWithCheckClick
+{
+    // 1.创建需要绘制的文字
+    NSMutableAttributedString *attributed = [[NSMutableAttributedString alloc] initWithString:self.text];
+    // 2.1设置行距等样式
+    [[self class] addGlobalAttributeWithContent:attributed font:self.font];
+    
+    // 2.2识别特定字符串并改变其颜色
+    [self recognizeSpecialStringWithAttributed:attributed];
+    
+    // 2.3加一个点击改变字符串颜色的效果
+    if (self.pressRange.location != 0 && self.pressRange.length != 0)
+    {
+        [attributed addAttribute:NSForegroundColorAttributeName value:[UIColor yellowColor] range:self.pressRange];
+    }
+    
+    self.textHeight = [[self class] textHeightWithText:self.text width:CGRectGetWidth(self.bounds) font:self.font type:self.drawType];
+    
+    // 3.创建绘制区域，path的高度对绘制有直接影响，如果高度不够，则计算出来的CTLine的数量会少一行或者少多行
+    CGMutablePathRef path = CGPathCreateMutable();
+    CGPathAddRect(path, NULL, CGRectMake(0, 0, CGRectGetWidth(self.bounds), self.textHeight*2));
+    
+    // 4.根据NSAttributedString生成CTFramesetterRef
+    CTFramesetterRef framesetter = CTFramesetterCreateWithAttributedString((CFAttributedStringRef)attributed);
+    
+    CTFrameRef ctFrame = CTFramesetterCreateFrame(framesetter, CFRangeMake(0, attributed.length), path, NULL);
+    self.ctFrame = CFRetain(ctFrame);
+    
+    // 重置高度
+    CGFloat realHeight = self.textHeight;
+    // 绘制全部文本需要的高度大于实际高度则调整，并加上省略号
+    if (realHeight > CGRectGetHeight(self.frame))
+    {
+        realHeight = CGRectGetHeight(self.frame);
+    }
+    
+    // 获取上下文
+    CGContextRef contextRef = UIGraphicsGetCurrentContext();
+    
+    // 转换坐标系
+    CGContextSetTextMatrix(contextRef, CGAffineTransformIdentity);
+    CGContextTranslateCTM(contextRef, 0, realHeight); // 这里跟着调整
+    CGContextScaleCTM(contextRef, 1.0, -1.0);
+    
+    // 这里可调整可不调整
+    CGPathAddRect(path, NULL, CGRectMake(0, 0, CGRectGetWidth(self.bounds), realHeight));
+    
+    // 一行一行绘制
+    CFArrayRef lines = CTFrameGetLines(ctFrame);
+    CFIndex lineCount = CFArrayGetCount(lines);
+    CGPoint lineOrigins[lineCount];
+    
+    // 把ctFrame里每一行的初始坐标写到数组里，注意CoreText的坐标是左下角为原点
+    CTFrameGetLineOrigins(ctFrame, CFRangeMake(0, 0), lineOrigins);
+    
+    CGFloat frameY = 0;
+    
+    for (CFIndex i = 0; i < lineCount; i++)
+    {
+        // 遍历每一行CTLine
+        CTLineRef line = CFArrayGetValueAtIndex(lines, i);
+        
+        CGFloat lineAscent;
+        CGFloat lineDescent;
+        CGFloat lineLeading; // 行距
+        // 该函数除了会设置好ascent,descent,leading之外，还会返回这行的宽度
+        CTLineGetTypographicBounds(line, &lineAscent, &lineDescent, &lineLeading);
+        
+        CGPoint lineOrigin = lineOrigins[i];
+        
+        // 微调Y值，需要注意的是CoreText的origin的Y值是在baseLine处，而不是下方的descent。
+        CGFloat lineHeight = self.font.pointSize * kPerLineRatio;
+        
+        // 调节self.font.descender该值可改变文字排版的上下间距，此处下间距为0
+        frameY = realHeight - (i + 1)*lineHeight - self.font.descender;
+        
+        lineOrigin.y = frameY;
+        
+        // 调整坐标
+        CGContextSetTextPosition(contextRef, lineOrigin.x, lineOrigin.y);
+        
+        // 反转坐标系
+        frameY = realHeight - frameY;
+
+        
+        // 行高
+        CGFloat heightPerLine = self.font.pointSize * kPerLineRatio;
+        
+        if (realHeight - frameY > heightPerLine)
+        {
+            CTLineDraw(line, contextRef);
+            
+        } else
+        {
+            
+            // 最后一行，加上省略号
+            static NSString* const kEllipsesCharacter = @"\u2026";
+            
+            CFRange lastLineRange = CTLineGetStringRange(line);
+            
+            if (lastLineRange.location + lastLineRange.length < (CFIndex)attributed.length)
+            {
+                // 这一行放不下所有的字符（下一行还有字符），则把此行后面的回车、空格符去掉后，再把最后一个字符替换成省略号
+                
+                CTLineTruncationType truncationType = kCTLineTruncationEnd;
+                NSUInteger truncationAttributePosition = lastLineRange.location + lastLineRange.length - 1;
+                
+                // 拿到最后一个字符的属性字典
+                NSDictionary *tokenAttributes = [attributed attributesAtIndex:truncationAttributePosition
+                                                               effectiveRange:NULL];
+                // 给省略号字符设置字体大小、颜色等属性
+                NSAttributedString *tokenString = [[NSAttributedString alloc] initWithString:kEllipsesCharacter
+                                                                                  attributes:tokenAttributes];
+                
+                // 用省略号单独创建一个CTLine，下面在截断重新生成CTLine的时候会用到
+                CTLineRef truncationToken = CTLineCreateWithAttributedString((__bridge CFAttributedStringRef)tokenString);
+                
+                // 把这一行的属性字符串复制一份，如果要把省略号放到中间或其他位置，只需指定复制的长度即可
+                NSUInteger copyLength = lastLineRange.length/3;
+                
+                NSMutableAttributedString *truncationString = [[attributed attributedSubstringFromRange:NSMakeRange(lastLineRange.location, copyLength)] mutableCopy];
+                
+                if (lastLineRange.length > 0)
+                {
+                    // Remove any whitespace at the end of the line.
+                    unichar lastCharacter = [[truncationString string] characterAtIndex:copyLength - 1];
+                    
+                    // 如果复制字符串的最后一个字符是换行、空格符，则删掉
+                    if ([[NSCharacterSet whitespaceAndNewlineCharacterSet] characterIsMember:lastCharacter])
+                    {
+                        [truncationString deleteCharactersInRange:NSMakeRange(copyLength - 1, 1)];
+                    }
+                }
+                
+                // 拼接省略号到复制字符串的最后
+                [truncationString appendAttributedString:tokenString];
+                
+                // 把新的字符串创建成CTLine
+                CTLineRef truncationLine = CTLineCreateWithAttributedString((__bridge CFAttributedStringRef)truncationString);
+                
+                // 创建一个截断的CTLine，该方法不能少，具体作用还有待研究
+                CTLineRef truncatedLine = CTLineCreateTruncatedLine(truncationLine, self.frame.size.width, truncationType, truncationToken);
+                
+                if (!truncatedLine)
+                {
+                    // If the line is not as wide as the truncationToken, truncatedLine is NULL
+                    truncatedLine = CFRetain(truncationToken);
+                }
+                
+                CFRelease(truncationLine);
+                CFRelease(truncationToken);
+                
+                CTLineDraw(truncatedLine, contextRef);
+                CFRelease(truncatedLine);
+                
+            } else
+            {
+                
+                // 这一行刚好是最后一行，且最后一行的字符可以完全绘制出来
+                CTLineDraw(line, contextRef);
+            }
+            
+            // 跳出循环，避免绘制剩下的多余的CTLine
+            break;
+            
+        }
+        
+        
+        
+        
     }
     
     
@@ -730,9 +896,7 @@ const CGFloat kPerLineRatio = 1.4;
     CFRelease(path);
     CFRelease(framesetter);
     CFRelease(ctFrame);
-
 }
-
 
 #pragma mark - 下载图片的方法
 - (void)downLoadImageWithURL:(NSURL *)url
@@ -835,6 +999,10 @@ CGFloat RunDelegateGetWidthCallback(void *refCon)
     } else if (drawType == HFDrawTextWithEllipses)
     {
         // 跟上方保持一致
+        return [self textHeightWithText2:aText width:aWidth font:aFont];
+        
+    } else if (drawType == HFDrawTextWithCheckClick)
+    {
         return [self textHeightWithText2:aText width:aWidth font:aFont];
     }
     
@@ -1000,4 +1168,160 @@ CGFloat RunDelegateGetWidthCallback(void *refCon)
     CFRelease(theParagraphRef);
     CFRelease(fontRef);
 }
+
+#pragma mark - 识别特定字符串并改其颜色，返回识别到的字符串所在的range
+- (NSMutableArray *)recognizeSpecialStringWithAttributed:(NSMutableAttributedString *)attributed
+{
+    NSMutableArray *rangeArray = [NSMutableArray array];
+    
+    // 识别@人名
+    NSRegularExpression *atRegular = [NSRegularExpression regularExpressionWithPattern:kAtRegularExpression options:NSRegularExpressionCaseInsensitive error:nil];
+    
+    NSArray *atResults = [atRegular matchesInString:self.text options:NSMatchingWithTransparentBounds range:NSMakeRange(0, self.text.length)];
+    
+    for (NSTextCheckingResult *checkResult in atResults)
+    {
+        if (attributed)
+        {
+            [attributed addAttribute:NSForegroundColorAttributeName value:[UIColor redColor] range:NSMakeRange(checkResult.range.location, checkResult.range.length -1)];
+        }
+        
+        [rangeArray addObject:[NSValue valueWithRange:checkResult.range]];
+    }
+    
+    
+    // 识别连续的数字
+    NSRegularExpression *numberRegular = [NSRegularExpression regularExpressionWithPattern:kNumberRegularExpression options:NSRegularExpressionCaseInsensitive|NSRegularExpressionUseUnixLineSeparators error:nil];
+    
+    NSArray *numberResults = [numberRegular matchesInString:self.text options:NSMatchingWithTransparentBounds range:NSMakeRange(0, self.text.length)];
+    
+    for (NSTextCheckingResult *checkResult in numberResults)
+    {
+        if (attributed)
+        {
+            [attributed addAttribute:NSForegroundColorAttributeName value:[UIColor blueColor] range:NSMakeRange(checkResult.range.location, checkResult.range.length-1)];
+        }
+        
+        [rangeArray addObject:[NSValue valueWithRange:NSMakeRange(checkResult.range.location, checkResult.range.length -1)]];
+    }
+    
+    
+    return rangeArray;
+}
+
+#pragma mark - 工具方法，恢复最初状态
+- (void)cancelColorAdded
+{
+    self.pressRange = NSMakeRange(0, 0);
+    
+    [self setNeedsDisplay];
+}
+
+#pragma mark - 手势识别相关
+- (void)longPressed:(UIGestureRecognizer *)gesture
+{
+    if (gesture.state == UIGestureRecognizerStateBegan)
+    {
+        
+    } else if (gesture.state == UIGestureRecognizerStateChanged)
+    {
+    
+    } else if (gesture.state == UIGestureRecognizerStateCancelled)
+    {
+    
+    } else if (gesture.state == UIGestureRecognizerStateEnded)
+    {
+        
+        if (self.pressRange.location != 0 && self.pressRange.length != 0)
+        {
+            NSLog(@"识别到点击");
+            
+            NSString *clickStr = [self.text substringWithRange:self.pressRange];
+            
+            NSLog(@"点击了 %@",clickStr);
+        }
+        
+    }
+}
+
+#pragma mark - UIGestureRecognizerDelegate
+- (BOOL)gestureRecognizerShouldBegin:(UIGestureRecognizer *)gestureRecognizer
+{
+    
+    if (gestureRecognizer == self.longPressGesture)
+    {
+        // 点击处在特定字符串内才进行识别
+        BOOL gestureShouldBegin = NO;
+        
+        
+        CGPoint location = [gestureRecognizer locationInView:self];
+        
+        CGFloat lineHeight = self.font.pointSize * kPerLineRatio;
+        
+        int lineIndex = location.y/lineHeight;
+        
+        NSLog(@"点击了第 %d 行",lineIndex);
+        
+        // 把点击的坐标转换为CoreText坐标系下
+        CGPoint clickPoint = CGPointMake(location.x, self.textHeight-location.y);
+        
+        CFArrayRef lines = CTFrameGetLines(self.ctFrame);
+        
+        if (lineIndex < CFArrayGetCount(lines))
+        {
+            CTLineRef clickLine = CFArrayGetValueAtIndex(lines, lineIndex);
+            
+            // 点击处的字符位于总字符串的index
+            CFIndex strIndex = CTLineGetStringIndexForPosition(clickLine, clickPoint);
+            
+            NSLog(@"strIndex = %ld",strIndex);
+            
+            NSMutableAttributedString *mutableAttributed = [[NSMutableAttributedString alloc] initWithString:self.text];
+            NSArray *checkResults = [self recognizeSpecialStringWithAttributed:mutableAttributed];
+            
+            for (NSValue *value in checkResults)
+            {
+                NSRange range = [value rangeValue];
+                
+                if (strIndex >= range.location && strIndex <= range.location + range.length)
+                {
+                    self.pressRange = range;
+                    gestureShouldBegin = YES;
+                    NSLog(@"pressRange = %@",NSStringFromRange(range));
+                    
+                    // 改变字符串的颜色并进行重绘
+//                    [self setNeedsDisplay];
+                    
+                    // 0.5秒后恢复颜色
+//                    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.5 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+//                        [self cancelColorAdded];
+//                    });
+                }
+                
+            }
+        }
+        
+        
+        
+        
+        return gestureShouldBegin;
+    }
+    
+    
+    return YES;
+}
+
+// 该方法可实现也可不实现，取决于应用场景
+- (BOOL)gestureRecognizer:(UIGestureRecognizer *)gestureRecognizer shouldRequireFailureOfGestureRecognizer:(UIGestureRecognizer *)otherGestureRecognizer
+{
+    if ([otherGestureRecognizer isKindOfClass:[UIPanGestureRecognizer class]])
+    {
+        return YES; // 避免应用在UITableViewCell上时，挡住拖动tableView的手势
+    }
+    
+    return NO;
+}
+
+
+
 @end

@@ -30,7 +30,8 @@
     self.coreTextView.font = [UIFont systemFontOfSize:15];
     self.coreTextView.text = content;
     
-    self.coreTextView.drawType = HFDrawTextLineByLine; // 设置该值即可切换
+    // 设置该值即可切换
+    self.coreTextView.drawType = HFDrawTextWithCheckClick;
     
     // 此时self.coreTextView的宽度为320，为了在iPhone6上计算准确，使用屏幕宽度
     CGFloat realWidth = [UIScreen mainScreen].bounds.size.width;
